@@ -2,7 +2,7 @@
   "name": "claude-code-cockpit",
   "displayName": "Claude Code Cockpit",
   "description": "Local-first HUD for Claude Code. Token + cost rollups (session/day/week/month/year), cross-project session Watchtower, Mac/Obsidian integrations, 30+ customizable widgets per tab. Read-only. 100% local.",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "publisher": "dashable",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -126,14 +126,6 @@
       {
         "command": "claudeCockpit.gallery.installFromUrl",
         "title": "Claude Cockpit: Install Skill from URL"
-      },
-      {
-        "command": "claudeCockpit.layout.save",
-        "title": "Claude Cockpit: Save Current Tab Layout As…"
-      },
-      {
-        "command": "claudeCockpit.layout.load",
-        "title": "Claude Cockpit: Load Tab Layout"
       },
       {
         "command": "claudeCockpit.layout.popOut",
@@ -341,7 +333,7 @@
         "claudeCockpit.cloudRoutines.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Surface a deep-link to manage cloud routines (scheduled remote agents) on claude.ai. Off by default to preserve Cockpit's local-only stance — turning this on does not yet make any network calls; it just unhides the link."
+          "description": "Surface a deep-link to manage cloud routines (scheduled remote agents) on claude.ai. Off by default to preserve Cockpit's local-only stance \u2014 turning this on does not yet make any network calls; it just unhides the link."
         },
         "claudeCockpit.theme": {
           "type": "string",
@@ -357,7 +349,7 @@
         "claudeCockpit.discover.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Enable the Discover tab (top GitHub projects + RSS from Obsidian). Off by default — turning it on lets Cockpit fetch api.github.com on demand (when you click Refresh). RSS reads from your Obsidian vault and makes no network calls."
+          "description": "Enable the Discover tab (top GitHub projects + RSS from Obsidian). Off by default \u2014 turning it on lets Cockpit fetch api.github.com on demand (when you click Refresh). RSS reads from your Obsidian vault and makes no network calls."
         },
         "claudeCockpit.wisprShortcut": {
           "type": "string",
@@ -372,12 +364,12 @@
         "claudeCockpit.roadmap.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Allow the Roadmap tab to fetch project metadata from roadmap.dashable.dev (or localhost:3000 if running the roadmap server locally). On by default — the endpoint is owned by the same operator as this extension. Set to false to make the Roadmap tab show only cached data (under ~/.claude/.cache/cockpit-roadmap.json) with no outbound traffic."
+          "description": "Allow the Roadmap tab to fetch project metadata from roadmap.dashable.dev (or localhost:3000 if running the roadmap server locally). On by default \u2014 the endpoint is owned by the same operator as this extension. Set to false to make the Roadmap tab show only cached data (under ~/.claude/.cache/cockpit-roadmap.json) with no outbound traffic."
         },
         "claudeCockpit.surfaces.macHealth": {
           "type": "boolean",
           "default": true,
-          "description": "Show the Mac Health tab (disk / memory / battery / CPU / Wi-Fi / Bluetooth peripherals). Disable to hide the tab and skip the periodic system_profiler probe (~1s every 30s). Cockpit's wedge is Claude observability, not iStat — keep this off if you already use a dedicated system monitor."
+          "description": "Show the Mac Health tab (disk / memory / battery / CPU / Wi-Fi / Bluetooth peripherals). Disable to hide the tab and skip the periodic system_profiler probe (~1s every 30s). Cockpit's wedge is Claude observability, not iStat \u2014 keep this off if you already use a dedicated system monitor."
         },
         "claudeCockpit.surfaces.appUsage": {
           "type": "boolean",
@@ -392,7 +384,7 @@
         "claudeCockpit.audit.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Append meta-events (outbound network calls, key-add/delete) to ~/.claude/.cockpit/audit.log. Local-only; never exfiltrated. Drives the Audit, Outbound, and Keys sub-views in the Security tab. Disable for zero-write operation — existing log files are preserved but no new events are appended."
+          "description": "Append meta-events (outbound network calls, key-add/delete) to ~/.claude/.cockpit/audit.log. Local-only; never exfiltrated. Drives the Audit, Outbound, and Keys sub-views in the Security tab. Disable for zero-write operation \u2014 existing log files are preserved but no new events are appended."
         },
         "claudeCockpit.approval.autoSnapshot": {
           "type": "boolean",
@@ -407,9 +399,16 @@
         },
         "claudeCockpit.approval.requireForToolNames": {
           "type": "array",
-          "default": ["Bash", "Edit", "Write", "MultiEdit"],
-          "description": "Hook-side hint: which Claude Code tool names should be routed through the approval queue. Cockpit itself does NOT enforce — wire your PreToolUse hook to read this list (v1.1 will ship the hook).",
-          "items": { "type": "string" }
+          "default": [
+            "Bash",
+            "Edit",
+            "Write",
+            "MultiEdit"
+          ],
+          "description": "Hook-side hint: which Claude Code tool names should be routed through the approval queue. Cockpit itself does NOT enforce \u2014 wire your PreToolUse hook to read this list (v1.1 will ship the hook).",
+          "items": {
+            "type": "string"
+          }
         },
         "claudeCockpit.replay.maxEventsPerSession": {
           "type": "number",
@@ -421,22 +420,22 @@
         "claudeCockpit.notifications.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Show desktop notifications when the approval queue gets new entries (0 → 1), an audit event is blocked, or today's spend crosses 80% of the daily cap. Each notification is debounced 30s per key."
+          "description": "Show desktop notifications when the approval queue gets new entries (0 \u2192 1), an audit event is blocked, or today's spend crosses 80% of the daily cap. Each notification is debounced 30s per key."
         },
         "claudeCockpit.mobile.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Publish a SANITIZED, read-only snapshot of the approval queue to ~/.claude/.cockpit/queue.public.json so a phone can render it via your existing Cloudflare Tunnel + Cloudflare Access SSO. Cockpit makes ZERO outbound calls — you serve the file yourself. Default off. The published payload contains only: id, tool, ageSeconds, agentName (≤8 chars), expectedDiffBytes, status, fileCount. NO file paths, NO arguments, NO secrets. v1.0 is read-only; mobile-side approve lands in v1.1."
+          "description": "Publish a SANITIZED, read-only snapshot of the approval queue to ~/.claude/.cockpit/queue.public.json so a phone can render it via your existing Cloudflare Tunnel + Cloudflare Access SSO. Cockpit makes ZERO outbound calls \u2014 you serve the file yourself. Default off. The published payload contains only: id, tool, ageSeconds, agentName (\u22648 chars), expectedDiffBytes, status, fileCount. NO file paths, NO arguments, NO secrets. v1.0 is read-only; mobile-side approve lands in v1.1."
         },
         "claudeCockpit.telemetry.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Opt-in usage analytics via PostHog. Default OFF — Cockpit is 100% local until you flip this. When enabled, Cockpit captures aggregate counters (tab views, command invocations, session duration) and a redacted stack on uncaught extension errors. Detail is redacted before send: no file paths, no prompt text, no session content, no API keys. All HTTP goes through the extension host (Node), never the webview, and every outbound POST is mirrored to ~/.claude/.cockpit/audit.log so you can SEE what left the machine. Requires claudeCockpit.telemetry.projectId to be set; otherwise this stays a no-op."
+          "description": "Opt-in usage analytics via PostHog. Default OFF \u2014 Cockpit is 100% local until you flip this. When enabled, Cockpit captures aggregate counters (tab views, command invocations, session duration) and a redacted stack on uncaught extension errors. Detail is redacted before send: no file paths, no prompt text, no session content, no API keys. All HTTP goes through the extension host (Node), never the webview, and every outbound POST is mirrored to ~/.claude/.cockpit/audit.log so you can SEE what left the machine. Requires claudeCockpit.telemetry.projectId to be set; otherwise this stays a no-op."
         },
         "claudeCockpit.telemetry.crashReports": {
           "type": "boolean",
           "default": false,
-          "description": "Opt-in crash reporting. Default OFF. Independently gated from telemetry.enabled — many users want usage counters but not crash stacks (anonymized stack frames can still hint at file system layout). When ON and telemetry.enabled is also ON, uncaught errors in activate() / the webview message handler / wrapped async surfaces are sent to PostHog with home directory replaced by ~ and external (non-Cockpit) frames blanked."
+          "description": "Opt-in crash reporting. Default OFF. Independently gated from telemetry.enabled \u2014 many users want usage counters but not crash stacks (anonymized stack frames can still hint at file system layout). When ON and telemetry.enabled is also ON, uncaught errors in activate() / the webview message handler / wrapped async surfaces are sent to PostHog with home directory replaced by ~ and external (non-Cockpit) frames blanked."
         },
         "claudeCockpit.telemetry.projectId": {
           "type": "string",
