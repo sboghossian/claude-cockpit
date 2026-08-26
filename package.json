@@ -335,17 +335,6 @@
           "default": false,
           "description": "Surface a deep-link to manage cloud routines (scheduled remote agents) on claude.ai. Off by default to preserve Cockpit's local-only stance \u2014 turning this on does not yet make any network calls; it just unhides the link."
         },
-        "claudeCockpit.theme": {
-          "type": "string",
-          "enum": [
-            "auto",
-            "dark",
-            "light",
-            "high-contrast"
-          ],
-          "default": "auto",
-          "description": "Initial theme for the Cockpit sidebar. 'auto' inherits VSCode's theme via CSS variables (default). 'dark'/'light' force a fixed palette regardless of VSCode's theme. 'high-contrast' uses a pure-black palette tuned for low-vision and high-glare environments (every text/UI pair meets WCAG AA, most meet AAA). The Customize panel inside the sidebar can override this at runtime."
-        },
         "claudeCockpit.discover.enabled": {
           "type": "boolean",
           "default": false,
