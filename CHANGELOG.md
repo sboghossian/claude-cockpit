@@ -2,6 +2,20 @@
 
 All notable changes to Claude Cockpit are tracked here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] — 2026-05-11
+
+### Changed — browser-style tabs
+
+- **Tabs are now opt-in, browser-style.** Only the `Custom` tab is shown by default. A `＋ New tab` button at the bottom of the rail opens an inline picker listing every other tab in the catalogue (with icon + hint). Click an entry to open and switch to it. Each non-pinned tab grows an `×` close button on hover (and is always visible when the tab is active) — close it to drop it from the rail. The old "Customize → tab checkboxes" UI still works and now stays in sync with the picker.
+- `Now` and `Help` are no longer pinned — they're regular addable tabs. The header `?` button still jumps to Help (which auto-adds the tab if it's not currently open is intentionally NOT done; the `?` jumps to whatever the user has open, and the picker is the path to surface Help on demand).
+- Existing users with a saved `enabledTabs` list keep their picks. New users (or anyone with no saved list yet) start with just `Custom` and grow the rail via `＋` — narrower sidebar, less visual noise.
+
+### Added
+
+- `+ New tab` picker UI in the rail (`media/sidebar.js` → `renderTabPicker`).
+- `×` close affordance on each closeable tab.
+- Compact CSS for the new controls in `media/sidebar.css`.
+
 ## [1.2.0] — 2026-05-10
 
 ### Added — UX uplift
@@ -498,3 +512,31 @@ Skipped — no shipped artifact under this version number.
 ### Added
 
 - **Phase 1 — read-only sidebar.** Read active session JSONL from `~/.claude/projects/<encoded-cwd>/*.jsonl`, compute token burn from `usage` blocks, extract files touched from Edit/Write/MultiEdit blocks, parse `MEMORY.md` index. Sidebar webview in the Activity Bar; status bar items for cwd basename, total tokens, files touched. Live updates via `fs.watch`. First public release.
+
+## 1.4.0
+
+Sidebar rebuilt around one idea: fewer choices, nothing to configure.
+
+- **Grouped navigation.** All 24 tabs are always available, organised into five
+  sections — Now, Work, Explore, System, Learn. Pick a section, pick a tab.
+- **Customization removed.** No widget picker, no tab show/hide, no layout
+  presets, no theme selector. This also fixes the long-standing bug where
+  checking a tab in Customize did nothing: visibility was driven by
+  `userPrefs.enabledTabs`, written by two different surfaces and silently
+  overridden by a third (`applyLayoutOverlay`'s `hiddenTabs`). Every tab is now
+  visible by construction, so there is no pref left to disagree with.
+- **Theme follows VSCode.** Every colour is a theme token. Users stuck on the
+  old `high-contrast` palette are moved back to the editor's own theme.
+- **Nav moved above the panel.** The 156px vertical rail was eating a third of
+  an already-narrow sidebar.
+- **Custom tab renamed Overview.**
+- **Fixed 3 unclosed CSS rules** (pre-existing, shipped in 1.3.0):
+  `.cockpit-graph-node-touched`, `.cockpit-gallery-sep` and
+  `.cockpit-layout-card-body` never closed, so the skill-gallery, tab-layout and
+  cost-projection style blocks were nested inside them and never applied.
+- **Header slimmed to one line** (90px → 37px). Dropped the two-line brand stack
+  and the "Personal-OS HUD · 100% local" tagline; the search input now shrinks
+  instead of clipping at narrow sidebar widths.
+- **Active tab no longer a saturated blue pill.** Matches VSCode's own tab
+  treatment: weight + a quiet background, not a filled block.
+- Removed the now-dead `layout.save` / `layout.load` commands (42 → 40).

@@ -491,125 +491,117 @@ input.search:focus {
  * State persisted in vscode.getState().railCollapsed.
  * =========================================================================== */
 .cockpit-shell {
+  /* v2: nav sits above the panel instead of beside it — a 156px vertical rail
+     ate a third of an already-narrow sidebar. */
   display: flex;
-  align-items: stretch;
-  gap: 8px;
-  margin: 0 -12px;
+  flex-direction: column;
   min-height: 0;
 }
 
 .cockpit-shell .tab-panel {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 0 12px 0 0;
   margin-top: 0;
 }
 
-.tabs.tabs-rail {
+/* ===========================================================================
+   v2 grouped nav — native-quiet.
+   Two rows: sections, then the tabs inside the active section. Every colour
+   is a VSCode theme token so the sidebar reads as part of the editor.
+   =========================================================================== */
+.cockpit-nav {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  flex: 0 0 156px;
-  width: 156px;
-  padding: 8px 6px;
-  background: var(--vscode-editorWidget-background);
-  border-right: 1px solid var(--vscode-editorWidget-border);
-  position: sticky;
-  top: 0;
-  align-self: flex-start;
-  max-height: 100vh;
-  overflow-y: auto;
-  z-index: 5;
-  transition: flex-basis 140ms ease, width 140ms ease;
+  gap: 0;
+  border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-editorWidget-border));
+  margin-bottom: 10px;
 }
 
-.tabs.tabs-rail[data-rail-collapsed="1"] {
-  flex: 0 0 44px;
-  width: 44px;
-  padding: 8px 4px;
+.grp-row {
+  display: flex;
+  gap: 2px;
+  padding: 2px 0 0;
 }
 
-.rail-toggle {
+.grp {
+  appearance: none;
+  border: none;
   background: transparent;
-  border: 1px solid transparent;
   color: var(--vscode-descriptionForeground);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 5px 8px 6px;
   cursor: pointer;
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 1;
-  padding: 4px 6px;
-  margin: 0 0 6px;
-  align-self: flex-end;
-  border-radius: 4px;
-  transition: background 120ms ease, color 120ms ease;
+  border-bottom: 1px solid transparent;
+  white-space: nowrap;
 }
 
-.rail-toggle:hover {
-  background: var(--vscode-toolbar-hoverBackground);
+.grp:hover {
   color: var(--vscode-foreground);
 }
 
-.tabs.tabs-rail[data-rail-collapsed="1"] .rail-toggle {
-  align-self: center;
+.grp-active {
+  color: var(--vscode-foreground);
+  border-bottom-color: var(--vscode-focusBorder);
+}
+
+.grp:focus-visible,
+.tab:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.tab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px 2px;
+  padding: 4px 0 6px;
 }
 
 .tab {
-  background: transparent;
+  appearance: none;
   border: none;
+  background: transparent;
   color: var(--vscode-descriptionForeground);
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
   cursor: pointer;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  padding: 6px 8px;
-  border-radius: 4px;
-  transition: background 120ms ease, color 120ms ease;
-  display: flex;
-  align-items: center;
-  text-align: left;
-  width: 100%;
   white-space: nowrap;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.tab-label {
-  margin-left: 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1 1 auto;
-}
-
-.tab-icon {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  stroke: currentColor;
 }
 
 .tab:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
   color: var(--vscode-foreground);
-  background: var(--vscode-list-hoverBackground);
 }
 
 .tab-active {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
   color: var(--vscode-foreground);
-  background: var(--vscode-list-activeSelectionBackground, var(--vscode-list-hoverBackground));
+  font-weight: 600;
 }
 
-.tabs.tabs-rail[data-rail-collapsed="1"] .tab {
-  justify-content: center;
-  padding: 8px 4px;
+/* Tabs that need a live session, when there isn't one. Still clickable —
+   the panel explains what's missing. */
+.tab-dim {
+  opacity: 0.55;
 }
 
-.tabs.tabs-rail[data-rail-collapsed="1"] .tab-label {
-  display: none;
+.tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tab-panel {
   margin-top: 0;
 }
+
 
 /* === Tool histogram bars === */
 ul.list.bars li {
@@ -1538,11 +1530,10 @@ h3.sub-h {
 .cockpit-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 4px 10px;
-  border-bottom: 1px solid var(--vscode-editorWidget-border);
-  margin-bottom: 8px;
+  gap: 6px;
+  padding: 4px 0 6px;
+  border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-editorWidget-border));
+  margin-bottom: 0;
   position: relative;
 }
 
@@ -1579,31 +1570,15 @@ h3.sub-h {
 }
 
 .cockpit-header .brand-mark {
-  font-size: 18px;
+  font-size: 13px;
   line-height: 1;
-  color: var(--vscode-textLink-foreground);
-}
-
-.cockpit-header .brand-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+  color: var(--vscode-descriptionForeground);
 }
 
 .cockpit-header .brand-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--vscode-foreground);
-  letter-spacing: 0.02em;
-}
-
-.cockpit-header .brand-tagline {
-  font-size: 10px;
-  color: var(--vscode-descriptionForeground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 280px;
 }
 
 .header-actions {
@@ -1634,92 +1609,6 @@ h3.sub-h {
 }
 
 /* ===========================================================================
- * Customize panel — picks widgets for Custom tab, toggles tab visibility,
- * picks theme.
- * =========================================================================== */
-.customize-hint {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 8px;
-  margin-bottom: 10px;
-  background: var(--vscode-editorWidget-background);
-  border: 1px dashed var(--vscode-editorWidget-border);
-  border-radius: 4px;
-  font-size: 11px;
-  color: var(--vscode-descriptionForeground);
-}
-
-.customize-panel {
-  padding: 4px 0;
-}
-
-.customize-panel .row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.customize-panel h2 {
-  margin-top: 4px;
-}
-
-.comp-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 4px 6px;
-  margin-bottom: 12px;
-}
-
-.comp-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border: 1px solid var(--vscode-editorWidget-border);
-  border-radius: 4px;
-  background: var(--vscode-editorWidget-background);
-  font-size: 11px;
-  cursor: pointer;
-  transition: border-color 0.1s ease, background 0.1s ease;
-}
-
-.comp-toggle:hover {
-  border-color: var(--vscode-textLink-foreground);
-}
-
-.comp-toggle.on {
-  border-color: var(--vscode-textLink-foreground);
-  background: var(--vscode-list-hoverBackground);
-}
-
-.comp-toggle.pinned {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.comp-toggle input[type="checkbox"],
-.comp-toggle input[type="radio"] {
-  margin: 0;
-  flex-shrink: 0;
-}
-
-.comp-toggle .comp-label {
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.theme-toggle {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
-}
-
-/* ===========================================================================
  * Theme overrides — applied via [data-theme="light"] / [data-theme="dark"].
  * "auto" inherits VSCode's theme via --vscode-* vars (the default).
  * =========================================================================== */
@@ -1741,29 +1630,11 @@ body[data-theme="light"] .kv .k {
   color: var(--cockpit-fg-muted);
 }
 
-body[data-theme="light"] .token-card,
-body[data-theme="light"] .watch-card,
-body[data-theme="light"] .comp-toggle,
-body[data-theme="light"] .customize-hint {
-  background: var(--cockpit-card);
-  border-color: var(--cockpit-border);
-}
-
 body[data-theme="light"] .header-btn,
 body[data-theme="light"] .office-btn,
 body[data-theme="light"] .rec-action {
   border-color: var(--cockpit-border);
   color: var(--cockpit-fg);
-}
-
-body[data-theme="light"] .header-btn:hover,
-body[data-theme="light"] .office-btn:hover,
-body[data-theme="light"] .rec-action:hover,
-body[data-theme="light"] .comp-toggle:hover,
-body[data-theme="light"] .comp-toggle.on {
-  background: var(--cockpit-hover);
-  border-color: var(--cockpit-link);
-  color: var(--cockpit-link);
 }
 
 body[data-theme="light"] .cockpit-header {
@@ -1803,25 +1674,16 @@ body[data-theme="dark"] .brand-tagline {
   color: var(--cockpit-fg-muted);
 }
 
-body[data-theme="dark"] .token-card,
-body[data-theme="dark"] .watch-card,
-body[data-theme="dark"] .comp-toggle,
-body[data-theme="dark"] .customize-hint {
-  background: var(--cockpit-card);
-  border-color: var(--cockpit-border);
-}
-
 /* ===========================================================================
  * Header search input — sits in the header strip between brand and actions.
  * =========================================================================== */
 .header-search {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   gap: 4px;
-  min-width: 60px;
-  max-width: 220px;
-  margin: 0 8px;
+  min-width: 0;
+  margin: 0;
 }
 
 .global-search-input {
@@ -2693,6 +2555,8 @@ select[data-prompt-cat-new] {
 .cockpit-graph-node-touched {
   fill: var(--vscode-charts-orange, #f97316);
   stroke: var(--vscode-charts-orange, #f97316);
+}
+
 /* === skill-gallery (Phase 1) === */
 .cockpit-gallery-header {
   display: flex;
@@ -2892,6 +2756,8 @@ select[data-prompt-cat-new] {
   margin: 12px 0;
   border: 0;
   border-top: 1px solid var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.08));
+}
+
 /* === tab-system-v2 (worktree: feat/launch-tab-system-v2) ===================
    Drag handles, pin marker, context menu, and pop-out grid. All selectors
    prefixed `.cockpit-layout-` per the conflict-map rule in PLAN.md. */
@@ -3015,6 +2881,8 @@ select[data-prompt-cat-new] {
   overflow: auto;
   flex: 1;
   font-size: 11px;
+}
+
 /* =============================================================================
    replay-timeline (Phase-1 launch wave) — all selectors prefixed
    .cockpit-replay- / .cockpit-cost- per the master plan rule.

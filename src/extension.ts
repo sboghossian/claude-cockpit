@@ -609,8 +609,6 @@ function activateInner(context: vscode.ExtensionContext): void {
   // user's CURRENT visible order; tab.next/prev cycle. Pop-out opens the
   // fullscreen webview panel. Save / Load drive the named-layout presets.
   context.subscriptions.push(
-    vscode.commands.registerCommand('claudeCockpit.layout.save', () => provider.saveLayoutViaPrompt()),
-    vscode.commands.registerCommand('claudeCockpit.layout.load', () => provider.loadLayoutViaPrompt()),
     vscode.commands.registerCommand('claudeCockpit.layout.popOut', () => provider.popOutFullscreen()),
     vscode.commands.registerCommand('claudeCockpit.tab.next', () => provider.cycleTab('next')),
     vscode.commands.registerCommand('claudeCockpit.tab.prev', () => provider.cycleTab('prev')),

@@ -17,9 +17,9 @@ Foundation shipped in v1.2.0 (vertical rail, ⌘K shortcut, refresh fix). The us
 
 ### Search v2
 
-- [ ] Recents: persist last 10 search queries in globalState; show under the input when it's empty.
-- [ ] Result grouping: collapsible sections per type (Tabs / Memory / Skills / Sessions / Projects / Routines).
-- [ ] Keyboard nav inside the overlay: ↑/↓ to walk hits, Enter to open, Esc to close. Already-open input handles Esc; need to add ↑/↓ + Enter when overlay is mounted.
+- [x] Recents: persist last 10 search queries in globalState; show under the input when it's empty.
+- [x] Result grouping: collapsible sections per type (Tabs / Memory / Skills / Sessions / Projects / Routines).
+- [x] Keyboard nav inside the overlay: ↑/↓ to walk hits, Enter to open, Esc to close. Already-open input handles Esc; need to add ↑/↓ + Enter when overlay is mounted.
 - [ ] Inline previews on focus: show 3-line excerpt for memory/session hits without leaving the overlay.
 
 ### Refresh v2

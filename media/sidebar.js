@@ -524,7 +524,6 @@
 
         <h3 class="sub-h">Next steps</h3>
         <div class="actions" style="gap: 6px; flex-wrap: wrap;">
-          <button class="office-btn" data-action="open-customize" title="Pick widgets per tab, choose visible tabs, theme">Customize widgets ⚙</button>
           <button class="office-btn" data-action="open-settings" title="Edit budget caps + opt-in toggles in VSCode settings">Open settings</button>
           <button class="office-btn" data-action="goto-tab" data-tab="now" title="See live session data">Go to Now</button>
           <button class="office-btn" data-action="goto-tab" data-tab="help" title="Read the full feature reference">Read the docs</button>
@@ -3674,10 +3673,11 @@
   }
 
   // ===========================================================================
-  // Tab catalogue — maps tab id to label-fn + body composer. The user can
-  // hide any non-pinned tab via the customize panel.
+  // Tab catalogue — maps tab id to label-fn + body composer. v2: every tab is
+  // always visible, reached through its section in the grouped nav. Nothing
+  // here is user-configurable.
   // ===========================================================================
-  const PINNED_TABS = ['custom', 'now', 'help'];
+  const PINNED_TABS = ['custom'];
   const DEFAULT_CUSTOM_COMPONENTS = ['greeting', 'inbox', 'statsGrid', 'quickActions', 'tokens', 'cost', 'routines'];
 
   // Per-tab default compositions. Each tab's body is now a list of widget IDs;
@@ -3753,6 +3753,31 @@
     tutorial:   '<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.74V17h8v-2.26A7 7 0 0 0 12 2z"/></svg>',
   };
 
+  // === v2 grouped nav ===
+  // Every tab is always available. Groups exist purely to shrink the number
+  // of choices on screen at once; nothing here is user-configurable.
+  const TAB_GROUPS = [
+    { id: 'now',     label: 'Now',     tabs: ['custom', 'now', 'watchtower', 'office', 'approval', 'replay'] },
+    { id: 'work',    label: 'Work',    tabs: ['skills', 'agents', 'gallery', 'routines', 'library', 'talk'] },
+    { id: 'explore', label: 'Explore', tabs: ['browse', 'history', 'obsidian', 'discover', 'timeline'] },
+    { id: 'system',  label: 'System',  tabs: ['mac', 'security', 'settings', 'self', 'recs'] },
+    { id: 'learn',   label: 'Learn',   tabs: ['welcome', 'tutorial', 'help'] },
+  ];
+
+  function groupOf(tabId) {
+    const g = TAB_GROUPS.find((grp) => grp.tabs.includes(tabId));
+    return g ? g.id : TAB_GROUPS[0].id;
+  }
+
+  function getActiveGroup(snap) {
+    const state = (typeof vscode !== 'undefined' && vscode.getState && vscode.getState()) || {};
+    // The group always follows the active tab, so deep links and ⌘K jumps
+    // land with the right group highlighted without extra bookkeeping.
+    const active = state.activeTab;
+    if (active) return groupOf(TAB_MIGRATIONS[active] || active);
+    return TAB_GROUPS[0].id;
+  }
+
   function tabCatalogue(snap) {
     const chatLabel = snap.chatExport && snap.chatExport.installed
       ? `Chat (${snap.chatExport.conversationCount})`
@@ -3763,8 +3788,8 @@
     // filter / understand at a glance.
     return [
       { id: 'welcome',    label: 'Welcome',                                                           pinned: false, requiresCwd: false, hint: 'First-run setup + system check' },
-      { id: 'custom',     label: 'Custom',                                                            pinned: true,  requiresCwd: false, hint: 'User-composed dashboard' },
-      { id: 'now',        label: 'Now',                                                               pinned: true,  requiresCwd: true,  hint: 'Active session — tokens, cost, files, tools' },
+      { id: 'custom',     label: 'Overview',                                                          pinned: true,  requiresCwd: false, hint: 'The at-a-glance dashboard — greeting, live runs, tokens, cost' },
+      { id: 'now',        label: 'Now',                                                               pinned: false, requiresCwd: true,  hint: 'Active session — tokens, cost, files, tools' },
       { id: 'recs',       label: recsLabel(snap),                                                     pinned: false, requiresCwd: false, hint: 'Recommendations across your setup' },
       { id: 'mac',        label: macLabel,                                                            pinned: false, requiresCwd: false, hint: 'macOS system health' },
       { id: 'watchtower', label: `Watchtower (${snap.watchtower.length})`,                            pinned: false, requiresCwd: false, hint: 'Every Claude session in the last hour' },
@@ -3789,7 +3814,7 @@
       { id: 'replay',     label: replayLabel(snap),                                                   pinned: false, requiresCwd: true,  hint: 'Scrub backwards through your active session — see exactly what changed at each step, fork from any point.' },
       // === onboarding-sandbox: Tutorial tab — recommendations + repeating-prompt nudges. ===
       { id: 'tutorial',   label: tutorialLabel(snap),                                                 pinned: false, requiresCwd: false, hint: 'History-based recommendations: "you ran /qa 4 times this week — try /qa --report-only".' },
-      { id: 'help',       label: '? Help',                                                            pinned: true,  requiresCwd: false, hint: 'How to read this thing' },
+      { id: 'help',       label: '? Help',                                                            pinned: false, requiresCwd: false, hint: 'How to read this thing' },
     ];
   }
 
@@ -3850,29 +3875,16 @@
   }
 
   function getEnabledTabIds(snap) {
-    const prefs = (snap && snap.userPrefs) || {};
     const cat = tabCatalogue(snap);
     const surfaces = (snap && snap.surfaces) || {};
-    const enabledExplicit = Array.isArray(prefs.enabledTabs) && prefs.enabledTabs.length;
-    const explicitSet = enabledExplicit ? migrateEnabledTabIds(prefs.enabledTabs) : null;
-    // Hide tabs whose underlying surface has been disabled in settings,
-    // regardless of user prefs — the data isn't being collected anyway.
-    const filtered = cat.filter((t) => {
+    // v2: every tab is always visible. The only thing that can remove one is
+    // its underlying surface being switched off in settings — the data isn't
+    // being collected, so the tab would be a dead end.
+    return cat.filter((t) => {
       if (t.id === 'mac' && surfaces.macHealth === false) return false;
-      // Welcome tab: visible by default ONLY until first-run is dismissed.
-      // After dismissal it's hidden unless the user explicitly added it back.
-      if (t.id === 'welcome') {
-        if (snap.firstRunCompleted) {
-          return enabledExplicit && explicitSet.has('welcome');
-        }
-        return true;
-      }
+      if (t.id === 'welcome' && snap.firstRunCompleted) return false;
       return true;
     });
-    const baseList = enabledExplicit
-      ? filtered.filter((t) => t.pinned || explicitSet.has(t.id) || t.id === 'welcome')
-      : filtered;
-    return applyLayoutOverlay(baseList, prefs);
   }
 
   // === tab-system-v2 ===
@@ -3936,7 +3948,16 @@
 
   function visibleTabBar(snap) {
     const hasCwd = !!snap.cwd;
-    return getEnabledTabIds(snap).map(({ id, label, requiresCwd, hint }) => ({
+    const groupId = getActiveGroup(snap);
+    const grp = TAB_GROUPS.find((g) => g.id === groupId) || TAB_GROUPS[0];
+    const all = getEnabledTabIds(snap);
+    const byId = new Map(all.map((t) => [t.id, t]));
+    const inGroup = grp.tabs.map((id) => byId.get(id)).filter(Boolean);
+    // A group can end up empty (e.g. Learn once Welcome is dismissed and the
+    // rest are surface-disabled) — fall back to the full list rather than
+    // rendering an empty nav.
+    const list = inGroup.length ? inGroup : all;
+    return list.map(({ id, label, requiresCwd, hint }) => ({
       id,
       label,
       requiresCwd: !!requiresCwd,
@@ -4000,7 +4021,7 @@
     const empty = !rendered.trim() && !blocked.length
       ? `<p class="empty">No widgets on this tab. Click <strong>⚙</strong> in the header to add some.</p>`
       : '';
-    return `${customizeHint(snap, tabId)}${empty}${rendered}${blockedNote}`;
+    return `${empty}${rendered}${blockedNote}`;
   }
 
   // Back-compat alias; some call sites may still reference customTabBody.
@@ -4008,147 +4029,8 @@
     return tabBodyComposed(snap, 'custom');
   }
 
-  function customizeHint(snap, tabId) {
-    const ids = getTabComponentIds(snap, tabId);
-    const cat = tabCatalogue(snap);
-    const tab = cat.find((t) => t.id === tabId);
-    const tabLabel = tab ? stripCount(tab.label) : tabId;
-    return `
-      <div class="customize-hint">
-        <span><strong>${escapeHtml(tabLabel)}</strong> · ${ids.length} widget${ids.length === 1 ? '' : 's'}</span>
-        <button class="office-btn" data-action="open-customize" data-customize-tab="${escapeHtml(tabId)}">Customize ⚙</button>
-      </div>
-    `;
-  }
 
-  function getCustomizeTab(snap) {
-    const state = vscode.getState() || {};
-    if (typeof state.customizeTab === 'string') {
-      const cat = tabCatalogue(snap);
-      if (cat.some((t) => t.id === state.customizeTab)) return state.customizeTab;
-    }
-    return 'custom';
-  }
 
-  function customizePanel(snap) {
-    const tabSet = new Set(getEnabledTabIds(snap).map((t) => t.id));
-    const cat = tabCatalogue(snap);
-    const themePref = ((snap.userPrefs || {}).theme) || 'auto';
-    const editingTabId = getCustomizeTab(snap);
-    const editingTab = cat.find((t) => t.id === editingTabId);
-    const editingLabel = editingTab ? stripCount(editingTab.label) : editingTabId;
-    const activeSet = new Set(getTabComponentIds(snap, editingTabId));
-
-    const compsByCat = {};
-    // COMPONENTS spread first so a colliding id is shadowed by the built-in
-    // (matches lookup precedence in tabBodyComposed).
-    for (const [id, c] of Object.entries({ ...EXTERNAL_COMPONENTS, ...COMPONENTS })) {
-      if (!compsByCat[c.category]) compsByCat[c.category] = [];
-      compsByCat[c.category].push({ id, ...c });
-    }
-    const compHtml = Object.entries(compsByCat)
-      .map(
-        ([catName, items]) => `
-        <h3 class="sub-h">${escapeHtml(catName)}</h3>
-        <div class="comp-grid">
-          ${items
-            .map(
-              (c) => `<label class="comp-toggle ${activeSet.has(c.id) ? 'on' : ''}">
-                <input type="checkbox" data-component-toggle="${escapeHtml(c.id)}" ${activeSet.has(c.id) ? 'checked' : ''} />
-                <span class="comp-label">${escapeHtml(c.label)}</span>
-                ${c.requiresCwd ? '<span class="tag" title="Requires active session">cwd</span>' : ''}
-              </label>`,
-            )
-            .join('')}
-        </div>
-      `,
-      )
-      .join('');
-
-    const sessionFilter = ((snap.userPrefs || {}).tabFilter) || 'all';
-    const filteredCat = cat.filter((t) => {
-      if (sessionFilter === 'requires') return t.requiresCwd;
-      if (sessionFilter === 'standalone') return !t.requiresCwd;
-      return true;
-    });
-    const filterChips = `
-      <div class="filter-chips">
-        ${['all', 'requires', 'standalone']
-          .map(
-            (f) => `<button class="filter-chip ${sessionFilter === f ? 'on' : ''}" data-tab-filter="${f}">${
-              f === 'all' ? 'All tabs' : f === 'requires' ? 'Needs session' : 'Standalone'
-            }</button>`,
-          )
-          .join('')}
-      </div>
-    `;
-    const tabHtml = filteredCat
-      .map(
-        (t) => `<label class="comp-toggle ${tabSet.has(t.id) ? 'on' : ''} ${t.pinned ? 'pinned' : ''}" title="${escapeHtml(t.hint || '')}">
-          <input type="checkbox" data-tab-toggle="${escapeHtml(t.id)}" ${tabSet.has(t.id) ? 'checked' : ''} ${t.pinned ? 'disabled' : ''} />
-          <span class="comp-label">${escapeHtml(stripCount(t.label))}</span>
-          ${t.requiresCwd ? '<span class="tag tag-needs-cwd" title="Most useful with an active session">●</span>' : ''}
-          ${t.pinned ? '<span class="tag tag-used">pinned</span>' : ''}
-        </label>`,
-      )
-      .join('');
-
-    // Tab selector for per-tab widget editing.
-    const editTabSelector = `
-      <div class="filter-chips" data-tab-edit-row>
-        ${cat
-          .map(
-            (t) => `<button class="filter-chip ${t.id === editingTabId ? 'on' : ''}" data-customize-edit-tab="${escapeHtml(t.id)}" title="${escapeHtml(t.hint || '')}">${escapeHtml(stripCount(t.label))}</button>`,
-          )
-          .join('')}
-      </div>
-    `;
-
-    const widgetCount = activeSet.size;
-    const resetBtn = `<button class="office-btn" data-action="reset-tab-widgets" data-customize-edit-tab="${escapeHtml(editingTabId)}" title="Restore the default widget set for this tab">Reset to default</button>`;
-    const clearBtn = `<button class="office-btn" data-action="clear-tab-widgets" data-customize-edit-tab="${escapeHtml(editingTabId)}" title="Remove every widget on this tab">Clear all</button>`;
-
-    return `
-      <div class="customize-panel">
-        <div class="row">
-          <h2 class="left">Customize Cockpit</h2>
-          <button class="office-btn right" data-action="close-customize">Done</button>
-        </div>
-        <p class="empty" style="font-size: 11px;">Pick widgets for any tab. Empty = empty (no fallback). Pinned tabs (Custom, Now, Help) can't be hidden.</p>
-
-        <h3 class="sub-h" id="cockpit-theme-heading">Theme</h3>
-        <div class="theme-toggle" role="radiogroup" aria-labelledby="cockpit-theme-heading">
-          ${['auto', 'dark', 'light', 'high-contrast']
-            .map(
-              (t) => {
-                const label =
-                  t === 'auto' ? 'Auto (follow VSCode)' :
-                  t === 'high-contrast' ? 'High contrast (AA+)' :
-                  t.charAt(0).toUpperCase() + t.slice(1);
-                // No aria-label on the input — the wrapping <label> + .comp-label
-                // span are already the accessible name; aria-label here would
-                // double-announce in screen readers.
-                return `<label class="comp-toggle ${themePref === t ? 'on' : ''}">
-                <input type="radio" name="theme" data-theme-set="${t}" ${themePref === t ? 'checked' : ''} />
-                <span class="comp-label">${escapeHtml(label)}</span>
-              </label>`;
-              },
-            )
-            .join('')}
-        </div>
-
-        <h3 class="sub-h">Visible tabs</h3>
-        ${filterChips}
-        <div class="comp-grid">${tabHtml}</div>
-
-        <h3 class="sub-h">Widgets on tab: <em>${escapeHtml(editingLabel)}</em> <span class="cost-rate">${widgetCount} active</span></h3>
-        <p class="empty" style="font-size: 11px;">Pick a tab to edit, then toggle widgets on/off. Each tab keeps its own widget set.</p>
-        ${editTabSelector}
-        <div class="actions" style="margin-top: 6px; gap: 6px;">${resetBtn}${clearBtn}</div>
-        ${compHtml}
-      </div>
-    `;
-  }
 
   function stripCount(label) {
     return String(label).replace(/\s*\(\d+\)\s*$/, '').replace(/\s*◌\s*$/, '');
@@ -4191,18 +4073,6 @@
       });
     }
 
-    for (const [id, c] of Object.entries(COMPONENTS)) {
-      out.push({
-        type: 'widget',
-        title: c.label,
-        subtitle: `Category: ${c.category}${c.requiresCwd ? ' · needs session' : ''}`,
-        tab: 'custom',
-        action: 'goto-customize',
-        payload: id,
-        keywords: `${id} ${c.label} ${c.category}`.toLowerCase(),
-        requiresCwd: c.requiresCwd,
-      });
-    }
 
     for (const m of (snap.memory || [])) {
       out.push({
@@ -4461,7 +4331,6 @@
   }
 
   function headerStrip(snap) {
-    const themePref = ((snap.userPrefs || {}).theme) || 'auto';
     const { query } = getSearchState();
     const upd = snap.updateStatus || {};
     const updatePill = upd.hasUpdate
@@ -4470,63 +4339,63 @@
         </button>`
       : '';
     return `
-      <header class="cockpit-header" data-theme-pref="${escapeHtml(themePref)}" role="banner">
+      <header class="cockpit-header" role="banner">
         <div class="brand">
           <span class="brand-mark" aria-hidden="true">◐</span>
-          <div class="brand-text">
-            <strong class="brand-title">Claude Cockpit</strong>
-            <span class="brand-tagline">Personal-OS HUD for Claude Code · 100% local</span>
-          </div>
+          <strong class="brand-title">Cockpit</strong>
         </div>
         <div class="header-search" role="search">
-          <input type="search" class="global-search-input" placeholder="Search anything (⌘K)…" aria-label="Search Cockpit (⌘K)" value="${escapeHtml(query)}" data-global-search />
+          <input type="search" class="global-search-input" placeholder="Search (⌘K)" aria-label="Search Cockpit (⌘K)" value="${escapeHtml(query)}" data-global-search />
           ${query ? '<button class="header-btn header-btn-x" data-action="clear-search" aria-label="Clear search" title="Clear search">✕</button>' : ''}
         </div>
         <div class="header-actions">
           ${updatePill}
-          <button class="header-btn" data-action="open-customize" aria-label="Customize widgets, tabs, and theme" title="Customize widgets, tabs, theme">⚙</button>
           <button class="header-btn" data-action="goto-help" aria-label="Open Help tab" title="Help">?</button>
         </div>
       </header>
     `;
   }
 
-  function renderTabBar(tabs, activeTab, railCollapsed) {
-    const collapseIcon = railCollapsed ? '»' : '«';
-    const collapseTitle = railCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
-    const toggleBtn = `<button class="rail-toggle" data-action="toggle-rail" aria-label="${collapseTitle}" aria-expanded="${railCollapsed ? 'false' : 'true'}" title="${collapseTitle} (⌘B)">${collapseIcon}</button>`;
+  function renderTabBar(tabs, activeTab, snap) {
+    const activeGroup = getActiveGroup(snap);
+    const enabled = new Set(getEnabledTabIds(snap).map((t) => t.id));
+    const groupRow = TAB_GROUPS
+      .filter((g) => g.tabs.some((id) => enabled.has(id)))
+      .map((g) => {
+        const on = g.id === activeGroup;
+        return `<button class="grp${on ? ' grp-active' : ''}" data-group="${g.id}" role="tab" aria-selected="${on}" title="${escapeHtml(g.label)}">${escapeHtml(g.label)}</button>`;
+      })
+      .join('');
+    const tabRow = tabs
+      .map((t) => {
+        const cls = ['tab'];
+        if (t.id === activeTab) cls.push('tab-active');
+        if (t.dim) cls.push('tab-dim');
+        const title = t.hint
+          ? `title="${escapeHtml(t.hint + (t.requiresCwd ? ' — needs an active session' : ''))}"`
+          : `title="${escapeHtml(t.label)}"`;
+        const ariaLabel = t.requiresCwd ? `${t.label} (requires active session)` : t.label;
+        return `<button class="${cls.join(' ')}" data-tab="${t.id}" role="tab" aria-selected="${t.id === activeTab}" aria-label="${escapeHtml(ariaLabel)}" ${title}><span class="tab-label">${escapeHtml(t.label)}</span></button>`;
+      })
+      .join('');
     return `
-      <nav class="tabs tabs-rail" role="tablist" aria-label="Cockpit tabs" data-rail-collapsed="${railCollapsed ? '1' : '0'}">
-        ${toggleBtn}
-        ${tabs
-          .map((t) => {
-            const cls = ['tab'];
-            if (t.id === activeTab) cls.push('tab-active');
-            if (t.dim) cls.push('tab-dim');
-            if (t.requiresCwd) cls.push('tab-needs-cwd');
-            const cwdMark = t.requiresCwd
-              ? '<span class="tab-cwd-mark" aria-hidden="true" title="Most useful with an active Claude Code session">●</span>'
-              : '';
-            const title = t.hint
-              ? `title="${escapeHtml(t.hint + (t.requiresCwd ? ' — needs an active session' : ''))}"`
-              : `title="${escapeHtml(t.label)}"`;
-            const rawIcon = TAB_ICONS[t.id] || '';
-            const icon = rawIcon
-              ? rawIcon.replace('<svg ', '<svg aria-hidden="true" focusable="false" ')
-              : '';
-            const ariaLabel = t.requiresCwd
-              ? `${t.label} (requires active session)`
-              : t.label;
-            return `<button class="${cls.join(' ')}" data-tab="${t.id}" role="tab" aria-selected="${t.id === activeTab}" aria-label="${escapeHtml(ariaLabel)}" ${title}>${cwdMark}${icon}<span class="tab-label">${escapeHtml(t.label)}</span></button>`;
-          })
-          .join('')}
+      <nav class="cockpit-nav" aria-label="Cockpit navigation">
+        <div class="grp-row" role="tablist" aria-label="Sections">${groupRow}</div>
+        <div class="tab-row" role="tablist" aria-label="Tabs in section">${tabRow}</div>
       </nav>
     `;
   }
 
-  function applyTheme(snap) {
-    const themePref = ((snap && snap.userPrefs && snap.userPrefs.theme) || 'auto');
-    document.body.setAttribute('data-theme', themePref);
+  // Built-in tabs that cannot be closed via the × button. Anything not in
+  // this set may be added via "+" and closed via "×".
+
+  // Inline list of addable tabs shown under the "+" button. Mirrors the
+  // browser "new tab" picker — click an entry to open + activate it.
+
+  function applyTheme() {
+    // v2: the sidebar always inherits VSCode's theme. Every colour is a
+    // VSCode theme token, so there is nothing to choose and nothing to store.
+    document.body.setAttribute('data-theme', 'auto');
   }
 
   function render(snap) {
@@ -4534,7 +4403,7 @@
       root.innerHTML = '<p class="empty">Loading…</p>';
       return;
     }
-    applyTheme(snap);
+    applyTheme();
     const header = headerStrip(snap);
     const state = vscode.getState() || {};
     if (state.searchOpen || (state.searchQuery || '').trim()) {
@@ -4548,16 +4417,9 @@
       }
       return;
     }
-    const customizeOpen = !!state.customizeOpen;
-    if (customizeOpen) {
-      root.innerHTML = `${header}<div class="tab-panel">${customizePanel(snap)}</div>`;
-      bindEvents();
-      return;
-    }
     const tabs = visibleTabBar(snap);
     const activeTab = ensureValidActiveTab(getActiveTab(snap), tabs);
-    const railCollapsed = !!state.railCollapsed;
-    const tabBar = renderTabBar(tabs, activeTab, railCollapsed);
+    const tabBar = renderTabBar(tabs, activeTab, snap);
     // Map any legacy tab id (e.g. 'memory' → 'library') to the modern one
     // before composing, so prefs and defaults line up.
     const composeTabId = TAB_MIGRATIONS[activeTab] || activeTab;
@@ -4569,7 +4431,7 @@
     // "Layout" toolbar with quick load/save controls. Layout state is read
     // from snap.userPrefs so the sidebar view + pop-out panel share state.
     const popout = typeof window !== 'undefined' && !!window.__cockpitPopoutMode;
-    const shellAttrs = `data-rail-collapsed="${railCollapsed ? '1' : '0'}"`;
+    const shellAttrs = '';
     if (popout) {
       const gridBody = renderPopoutGrid(snap);
       root.innerHTML = `${header}<div class="cockpit-shell" ${shellAttrs}>${tabBar}<div class="tab-panel cockpit-layout-popout">${gridBody}</div></div>`;
@@ -4620,7 +4482,6 @@
       <div class="cockpit-layout-toolbar">
         <strong>Layout</strong>
         ${presetButtons || '<span class="empty">No saved presets — right-click a tab to save one.</span>'}
-        <button class="office-btn" data-cockpit-layout-save>Save current as…</button>
       </div>
     `;
     return `${toolbar}<div class="cockpit-layout-grid">${cards}</div>`;
@@ -4642,7 +4503,6 @@
   function setActiveTab(id) {
     const prev = (vscode.getState() || {}).activeTab;
     const next = { ...(vscode.getState() || {}), activeTab: id };
-    delete next.customizeOpen;
     vscode.setState(next);
     // === telemetry-posthog (Phase 2): ping the host so it can capture a
     // tab.view event. The host gates this on the opt-in flag — when
@@ -4660,57 +4520,52 @@
     if (stale) vscode.postMessage({ type: 'fetchRoadmap' });
   }
 
-  function openCustomize() {
-    vscode.setState({ ...(vscode.getState() || {}), customizeOpen: true });
-  }
 
-  function closeCustomize() {
-    const next = { ...(vscode.getState() || {}), customizeOpen: false };
-    vscode.setState(next);
-  }
 
   function persistUserPrefs(patch) {
     vscode.postMessage({ type: 'setUserPrefs', patch });
   }
 
+
   function bindEvents() {
-    root.querySelectorAll('button[data-tab]').forEach((btn) => {
+    // v2 grouped nav — clicking a section activates its first available tab.
+    // The section highlight is derived from the active tab, so there is no
+    // separate group state to keep in sync.
+    root.querySelectorAll('button[data-group]').forEach((btn) => {
       btn.addEventListener('click', () => {
+        const gid = btn.getAttribute('data-group');
+        const grp = TAB_GROUPS.find((g) => g.id === gid);
+        if (!grp || !lastSnapshot) return;
+        const enabled = getEnabledTabIds(lastSnapshot).map((t) => t.id);
+        const first = grp.tabs.find((id) => enabled.includes(id));
+        if (!first) return;
+        setActiveTab(first);
+        render(lastSnapshot);
+      });
+    });
+
+    root.querySelectorAll('button[data-tab]').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        // Guard: clicks on the × span bubble up here — ignore them.
+        if (ev.target && ev.target.closest && ev.target.closest('[data-tab-close]')) return;
         const id = btn.getAttribute('data-tab');
         if (!id) return;
+        // Switching tabs always closes the "+" picker so we never strand it.
+        const cur = vscode.getState() || {};
         setActiveTab(id);
         if (id === 'timeline' || id === 'roadmap') maybeAutoFetchRoadmap();
         if (lastSnapshot) render(lastSnapshot);
       });
     });
 
+    // Tab picker (+) — pick an item from the dropdown to add it as a new tab.
+
     root.querySelectorAll('button[data-action]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const action = btn.getAttribute('data-action');
-        if (action === 'toggle-rail') {
-          const cur = vscode.getState() || {};
-          vscode.setState({ ...cur, railCollapsed: !cur.railCollapsed });
-          if (lastSnapshot) render(lastSnapshot);
-          return;
-        }
         if (action === 'refresh') vscode.postMessage({ type: 'refresh' });
         if (action === 'memory') vscode.postMessage({ type: 'openMemory' });
         if (action === 'session') vscode.postMessage({ type: 'openSessionFile' });
-        if (action === 'open-customize') {
-          // If the click came from a per-tab customize hint, scope the panel
-          // to that tab. The header ⚙ button has no data-customize-tab.
-          const targetTab = btn.getAttribute('data-customize-tab');
-          if (targetTab) {
-            const cur = vscode.getState() || {};
-            vscode.setState({ ...cur, customizeTab: targetTab });
-          }
-          openCustomize();
-          if (lastSnapshot) render(lastSnapshot);
-        }
-        if (action === 'close-customize') {
-          closeCustomize();
-          if (lastSnapshot) render(lastSnapshot);
-        }
         if (action === 'goto-help') {
           setActiveTab('help');
           if (lastSnapshot) render(lastSnapshot);
@@ -4759,111 +4614,16 @@
     });
 
     // Customize panel — tab selector chips ("which tab am I editing?")
-    root.querySelectorAll('button[data-customize-edit-tab]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-customize-edit-tab');
-        if (!id) return;
-        const cur = vscode.getState() || {};
-        vscode.setState({ ...cur, customizeTab: id });
-        if (lastSnapshot) render(lastSnapshot);
-      });
-    });
 
     // Customize panel — component picker checkboxes (per-tab)
-    root.querySelectorAll('input[data-component-toggle]').forEach((input) => {
-      input.addEventListener('change', () => {
-        const id = input.getAttribute('data-component-toggle');
-        if (!id || !lastSnapshot) return;
-        const editingTabId = getCustomizeTab(lastSnapshot);
-        const current = getTabComponentIds(lastSnapshot, editingTabId);
-        let next;
-        if (input.checked) {
-          next = current.includes(id) ? current : [...current, id];
-        } else {
-          next = current.filter((x) => x !== id);
-        }
-        const prefs = (lastSnapshot.userPrefs || {});
-        const allTabComponents = (prefs.tabComponents && typeof prefs.tabComponents === 'object')
-          ? { ...prefs.tabComponents }
-          : {};
-        // Seed with current legacy customComponents on first edit of Custom,
-        // so we don't lose the user's previous picks during migration.
-        if (editingTabId === 'custom' && !allTabComponents.custom && Array.isArray(prefs.customComponents)) {
-          allTabComponents.custom = prefs.customComponents.slice();
-        }
-        allTabComponents[editingTabId] = next;
-        persistUserPrefs({ tabComponents: allTabComponents });
-      });
-    });
 
     // Customize panel — Reset / Clear shortcut buttons (per-tab)
-    root.querySelectorAll('button[data-action="reset-tab-widgets"]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        if (!lastSnapshot) return;
-        const id = btn.getAttribute('data-customize-edit-tab') || getCustomizeTab(lastSnapshot);
-        const prefs = (lastSnapshot.userPrefs || {});
-        const allTabComponents = (prefs.tabComponents && typeof prefs.tabComponents === 'object')
-          ? { ...prefs.tabComponents }
-          : {};
-        delete allTabComponents[id]; // remove the override → fall back to defaults
-        persistUserPrefs({ tabComponents: allTabComponents });
-      });
-    });
-    root.querySelectorAll('button[data-action="clear-tab-widgets"]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        if (!lastSnapshot) return;
-        const id = btn.getAttribute('data-customize-edit-tab') || getCustomizeTab(lastSnapshot);
-        const prefs = (lastSnapshot.userPrefs || {});
-        const allTabComponents = (prefs.tabComponents && typeof prefs.tabComponents === 'object')
-          ? { ...prefs.tabComponents }
-          : {};
-        allTabComponents[id] = []; // empty array = "user wants empty" (no fallback)
-        persistUserPrefs({ tabComponents: allTabComponents });
-      });
-    });
 
     // Customize panel — tab visibility checkboxes
-    root.querySelectorAll('input[data-tab-toggle]').forEach((input) => {
-      input.addEventListener('change', () => {
-        const id = input.getAttribute('data-tab-toggle');
-        if (!id || !lastSnapshot) return;
-        const allTabIds = tabCatalogue(lastSnapshot).map((t) => t.id);
-        const enabledNow = getEnabledTabIds(lastSnapshot).map((t) => t.id);
-        let next;
-        if (input.checked) {
-          next = enabledNow.includes(id) ? enabledNow : [...enabledNow, id];
-        } else {
-          next = enabledNow.filter((x) => x !== id);
-        }
-        // Always ensure pinned ids remain present.
-        for (const t of tabCatalogue(lastSnapshot)) {
-          if (t.pinned && !next.includes(t.id)) next.push(t.id);
-        }
-        // Preserve catalogue order.
-        const ordered = allTabIds.filter((x) => next.includes(x));
-        persistUserPrefs({ enabledTabs: ordered });
-      });
-    });
 
     // Customize panel — theme radios
-    root.querySelectorAll('input[data-theme-set]').forEach((input) => {
-      input.addEventListener('change', () => {
-        if (!input.checked) return;
-        const v = input.getAttribute('data-theme-set');
-        if (v !== 'auto' && v !== 'dark' && v !== 'light' && v !== 'high-contrast') return;
-        document.body.setAttribute('data-theme', v);
-        persistUserPrefs({ theme: v });
-      });
-    });
 
     // Customize panel — tab filter chips ("All / Needs session / Standalone")
-    root.querySelectorAll('button[data-tab-filter]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const v = btn.getAttribute('data-tab-filter');
-        if (!v) return;
-        persistUserPrefs({ tabFilter: v });
-      });
-    });
 
     // Global search input — type-to-search with debounce + keyboard nav
     const globalSearchInput = root.querySelector('input[data-global-search]');
@@ -4958,9 +4718,6 @@
         }
         if (action === 'goto-tab') {
           setActiveTab(payload || targetTab);
-        } else if (action === 'goto-customize') {
-          setActiveTab('custom');
-          openCustomize();
         } else if (action === 'open-memory-file' && payload) {
           vscode.postMessage({ type: 'openMemoryFile', filename: payload });
         } else if (action === 'copy-skill' && payload) {
@@ -5624,19 +5381,6 @@
       if (!next) return;
       setActiveTab(next);
       render(lastSnapshot);
-    } else if (msg && msg.type === 'layout.saveCurrentAs') {
-      // Host command supplied the name; capture current visible order +
-      // pinned/hidden state and persist as a preset.
-      if (!lastSnapshot || !msg.layoutName) return;
-      const order = visibleTabBar(lastSnapshot).map((t) => t.id);
-      const prefs = lastSnapshot.userPrefs || {};
-      vscode.postMessage({
-        type: 'layout.save',
-        layoutName: msg.layoutName,
-        tabOrder: order,
-        pinnedTabs: Array.isArray(prefs.pinnedTabs) ? prefs.pinnedTabs : [],
-        hiddenTabs: Array.isArray(prefs.hiddenTabs) ? prefs.hiddenTabs : [],
-      });
     } else if (msg && msg.type === 'minedPrompts') {
       minedPromptsState = {
         prompts: msg.prompts || [],
@@ -5682,11 +5426,6 @@
         inp.focus();
         inp.select();
       }
-    } else if (e.key === 'b' || e.key === 'B') {
-      e.preventDefault();
-      const cur = vscode.getState() || {};
-      vscode.setState({ ...cur, railCollapsed: !cur.railCollapsed });
-      if (lastSnapshot) render(lastSnapshot);
     }
   });
 
